@@ -1,20 +1,30 @@
-# Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+# AceleraBot Dashboard
 
-# Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
+Painel administrativo do ecossistema AceleraBot — construído com Next.js 15. Permite aos donos de negócios gerenciarem o bot de IA do WhatsApp e visualizarem leads gerados.
 
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+## Stack
 
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 
+- **Framework**: Next.js 15 (App Router)
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Autenticação e Banco**: Supabase
 
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
+## Setup Local
+
+```bash
+# 1. Instalar dependências
+npm install
+
+# 2. Configurar variáveis de ambiente
+cp .env.example .env
+# Edite o arquivo .env definindo a URL do backend (NEXT_PUBLIC_BACKEND_URL)
+
+# 3. Rodar em desenvolvimento
+npm run dev
+```
+
+Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o painel rodando.
+
+## Integração com o Backend
+
+O painel consome as APIs do backend do AceleraBot. Certifique-se de que o backend (`acelera-bot-api` / `AceleraBot Back`) está rodando e a variável `NEXT_PUBLIC_BACKEND_URL` está apontando para o endereço correto dele (geralmente `http://localhost:3000` em desenvolvimento local).
