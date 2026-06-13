@@ -1,13 +1,13 @@
-# Azure DevOps Pipeline — Frontend AceleraBot (Next.js → Vercel)
-# Deploy via Vercel CLI (a Vercel não conecta auto-deploy ao Azure DevOps).
+# Azure DevOps — Espelhamento para o GitHub (Frontend AceleraBot)
 #
-# Variáveis a definir em Pipelines > Edit > Variables (marque "secret"):
-#   VERCEL_TOKEN        token de conta Vercel (Account Settings > Tokens) (secret)
-#   VERCEL_ORG_ID       de .vercel/project.json após rodar `vercel link` localmente
-#   VERCEL_PROJECT_ID   idem
+# A cada push na main, empurra o código para um repositório-espelho no GitHub.
+# A Vercel fica conectada a ESSE repo do GitHub e faz o deploy automaticamente.
+# Você continua commitando apenas no Azure DevOps.
 #
-# NEXT_PUBLIC_BACKEND_URL deve ser configurada no projeto da Vercel
-# (Settings > Environment Variables), apontando para a URL do backend no Render.
+# Variáveis a definir em Pipelines > Edit > Variables:
+#   GITHUB_REPO   destino, no formato usuario_ou_org/nome-do-repo  (ex.: aceleraai/acelera-bot-front)
+#   GITHUB_PAT    token do GitHub com permissão de escrita no repo (secret)
+#                 (fine-grained: Contents = Read and write; ou classic com escopo "repo")
 
 trigger:
   branches:
@@ -17,19 +17,11 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '20.x'
-    displayName: 'Use Node 20'
-
-  - script: npm install -g vercel@latest
-    displayName: 'Install Vercel CLI'
+  - checkout: self
+    fetchDepth: 0                 # histórico completo (mirror não pode ser shallow)
+    persistCredentials: false
 
   - script: |
-      vercel pull --yes --environment=production --token=$(VERCEL_TOKEN)
-      vercel build --prod --token=$(VERCEL_TOKEN)
-      vercel deploy --prebuilt --prod --token=$(VERCEL_TOKEN)
-    displayName: 'Deploy to Vercel'
-    env:
-      VERCEL_ORG_ID: $(VERCEL_ORG_ID)
-      VERCEL_PROJECT_ID: $(VERCEL_PROJECT_ID)
+      set -e
+      git push --force "https://$(GITHUB_PAT)@github.com/$(GITHUB_REPO).git" HEAD:refs/heads/main
+    displayName: 'Espelhar para o GitHub'
