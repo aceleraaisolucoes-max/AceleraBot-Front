@@ -15,10 +15,10 @@ export default function AppointmentsPage() {
 
   // 1. Carregar ID do cliente
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: any) => {
       if (!user) return;
       supabase.from('clients').select('id').eq('user_id', user.id).single()
-        .then(({ data }) => {
+        .then(({ data }: any) => {
           setClientId(data?.id ?? null);
         });
     });

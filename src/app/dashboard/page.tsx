@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { Calendar } from 'lucide-react';
 
+// Dados ao vivo do backend: renderiza a cada request (não no build).
+export const dynamic = 'force-dynamic';
+
 async function getStats(clientId: string) {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const res = await fetch(`${backendUrl}/appointments/stats?clientId=${clientId}`, {

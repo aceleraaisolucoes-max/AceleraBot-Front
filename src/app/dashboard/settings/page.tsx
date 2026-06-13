@@ -104,7 +104,7 @@ function KnowledgeEditor({ clientId }: { clientId: string }) {
       .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
-      .then(({ data }) => setEntries(data ?? []));
+      .then(({ data }: any) => setEntries(data ?? []));
   }, [clientId]);
 
   async function handleAdd(e: React.FormEvent) {
@@ -299,10 +299,10 @@ export default function SettingsPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: any) => {
       if (!user) return;
       supabase.from('clients').select('id').eq('user_id', user.id).single()
-        .then(({ data }) => setClientId(data?.id ?? null));
+        .then(({ data }: any) => setClientId(data?.id ?? null));
     });
   }, []);
 
