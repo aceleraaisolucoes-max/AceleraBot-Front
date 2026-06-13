@@ -5,13 +5,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
   Bot, LayoutDashboard, MessageSquare,
-  Users, BookOpen, Settings, LogOut
+  Calendar, BookOpen, Settings, LogOut
 } from 'lucide-react';
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/conversations', label: 'Conversas', icon: MessageSquare },
-  { href: '/dashboard/leads', label: 'Leads', icon: Users },
+  { href: '/dashboard/appointments', label: 'Agendamentos', icon: Calendar },
   { href: '/dashboard/knowledge', label: 'Base de Conhecimento', icon: BookOpen },
   { href: '/dashboard/settings', label: 'Configurações', icon: Settings },
 ];

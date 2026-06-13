@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Loader2, RefreshCw, Wifi, WifiOff, QrCode } from 'lucide-react';
+import { Loader2, RefreshCw, Wifi, WifiOff, QrCode, Calendar } from 'lucide-react';
 
 // ─── QR Code Viewer ───────────────────────────────────────────────────────────
 
@@ -191,6 +191,107 @@ function KnowledgeEditor({ clientId }: { clientId: string }) {
   );
 }
 
+// ─── Componente Google Calendar ──────────────────────────────────────────────
+
+function GoogleCalendarSection({ clientId }: { clientId: string }) {
+  const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+  const checkStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${backendUrl}/google/status?clientId=${clientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setConnected(data.connected);
+      }
+    } catch (err) {
+      console.error('Error checking Google status:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId, backendUrl]);
+
+  useEffect(() => {
+    checkStatus();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google') === 'connected') {
+      setConnected(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [checkStatus]);
+
+  async function handleDisconnect() {
+    const confirmDisconnect = confirm('Deseja realmente desconectar sua conta do Google Calendar? Os agendamentos no Google não serão mais sincronizados.');
+    if (!confirmDisconnect) return;
+
+    try {
+      setDisconnecting(true);
+      const res = await fetch(`${backendUrl}/google/disconnect?clientId=${clientId}`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        setConnected(false);
+      }
+    } catch (err) {
+      console.error('Error disconnecting Google Calendar:', err);
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  const connectUrl = `${backendUrl}/google/auth?clientId=${clientId}`;
+
+  return (
+    <div className="bg-[#111827] border border-white/10 rounded-2xl p-6 mt-6">
+      <h2 className="text-lg font-bold text-white mb-1">Sincronização Google Agenda</h2>
+      <p className="text-slate-400 text-sm mb-6 font-medium">Permita que seu assistente virtual leia sua disponibilidade em tempo real e salve compromissos automaticamente.</p>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-400">
+          <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+          <span className="text-sm">Verificando conexão...</span>
+        </div>
+      ) : connected ? (
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-green-500/10 text-green-400 border border-green-500/20">
+            <Calendar className="w-4 h-4" />
+            Google Calendar Ativo ✓
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed max-w-md">
+            Sua agenda principal do Google Calendar está conectada ao AceleraAssistente. Novos horários agendados por clientes no WhatsApp serão salvos de forma instantânea.
+          </p>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
+          >
+            {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            Desconectar Agenda Google
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="text-sm text-slate-400 space-y-1.5 leading-relaxed">
+            <p>1. Conecte sua conta do Google</p>
+            <p>2. O assistente usará o calendário para evitar colisões de horários</p>
+            <p>3. Os agendamentos marcados aparecerão direto no seu celular</p>
+          </div>
+          <a
+            href={connectUrl}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:opacity-90 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all w-fit"
+          >
+            <Calendar className="w-4 h-4" />
+            Conectar Google Calendar
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -220,6 +321,7 @@ export default function SettingsPage() {
         <p className="text-slate-400 text-sm mt-1">Gerencie sua conexão com o WhatsApp e dados da conta.</p>
       </div>
       <QRCodeSection clientId={clientId} />
+      <GoogleCalendarSection clientId={clientId} />
     </div>
   );
 }

@@ -1,0 +1,35 @@
+# Azure DevOps Pipeline — Frontend AceleraBot (Next.js → Vercel)
+# Deploy via Vercel CLI (a Vercel não conecta auto-deploy ao Azure DevOps).
+#
+# Variáveis a definir em Pipelines > Edit > Variables (marque "secret"):
+#   VERCEL_TOKEN        token de conta Vercel (Account Settings > Tokens) (secret)
+#   VERCEL_ORG_ID       de .vercel/project.json após rodar `vercel link` localmente
+#   VERCEL_PROJECT_ID   idem
+#
+# NEXT_PUBLIC_BACKEND_URL deve ser configurada no projeto da Vercel
+# (Settings > Environment Variables), apontando para a URL do backend no Render.
+
+trigger:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: 'Use Node 20'
+
+  - script: npm install -g vercel@latest
+    displayName: 'Install Vercel CLI'
+
+  - script: |
+      vercel pull --yes --environment=production --token=$(VERCEL_TOKEN)
+      vercel build --prod --token=$(VERCEL_TOKEN)
+      vercel deploy --prebuilt --prod --token=$(VERCEL_TOKEN)
+    displayName: 'Deploy to Vercel'
+    env:
+      VERCEL_ORG_ID: $(VERCEL_ORG_ID)
+      VERCEL_PROJECT_ID: $(VERCEL_PROJECT_ID)

@@ -1,17 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
+import { Calendar } from 'lucide-react';
 
 async function getStats(clientId: string) {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  const res = await fetch(`${backendUrl}/leads/stats?clientId=${clientId}`, {
+  const res = await fetch(`${backendUrl}/appointments/stats?clientId=${clientId}`, {
     next: { revalidate: 60 }, // Cache por 60 segundos
   });
-  if (!res.ok) return { totalConversations: 0, totalLeads: 0, todayLeads: 0, conversionRate: 0 };
+  if (!res.ok) return { totalConversations: 0, totalAppointments: 0, todayAppointments: 0, conversionRate: 0 };
   return res.json();
 }
 
-async function getRecentLeads(clientId: string) {
+async function getRecentAppointments(clientId: string) {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  const res = await fetch(`${backendUrl}/leads?clientId=${clientId}&limit=5`, {
+  const res = await fetch(`${backendUrl}/appointments?clientId=${clientId}&limit=5`, {
     next: { revalidate: 30 },
   });
   if (!res.ok) return [];
@@ -29,15 +30,15 @@ export default async function DashboardPage() {
     .eq('user_id', user!.id)
     .single();
 
-  const [stats, recentLeads] = await Promise.all([
-    client ? getStats(client.id) : { totalConversations: 0, totalLeads: 0, todayLeads: 0, conversionRate: 0 },
-    client ? getRecentLeads(client.id) : [],
+  const [stats, recentAppointments] = await Promise.all([
+    client ? getStats(client.id) : { totalConversations: 0, totalAppointments: 0, todayAppointments: 0, conversionRate: 0 },
+    client ? getRecentAppointments(client.id) : [],
   ]);
 
   const statCards = [
     { label: 'Total de Conversas', value: stats.totalConversations, color: 'text-cyan-400', bg: 'from-cyan-500/10 to-transparent' },
-    { label: 'Leads Qualificados', value: stats.totalLeads, color: 'text-purple-400', bg: 'from-purple-500/10 to-transparent' },
-    { label: 'Leads Hoje', value: stats.todayLeads, color: 'text-green-400', bg: 'from-green-500/10 to-transparent' },
+    { label: 'Agendamentos Confirmados', value: stats.totalAppointments, color: 'text-purple-400', bg: 'from-purple-500/10 to-transparent' },
+    { label: 'Agendamentos Hoje', value: stats.todayAppointments, color: 'text-green-400', bg: 'from-green-500/10 to-transparent' },
     { label: 'Taxa de Conversão', value: `${stats.conversionRate}%`, color: 'text-orange-400', bg: 'from-orange-500/10 to-transparent' },
   ];
 
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold text-white">
           Olá, <span className="text-cyan-400">{client?.business_name ?? 'bem-vindo!'}</span> 👋
         </h1>
-        <p className="text-slate-400 text-sm mt-1">Aqui está o resumo do seu AceleraBot hoje.</p>
+        <p className="text-slate-400 text-sm mt-1">Aqui está o resumo dos agendamentos de seu assistente hoje.</p>
       </div>
 
       {/* Stat Cards */}
@@ -62,35 +63,40 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Recent Leads */}
+      {/* Recent Appointments */}
       <div className="bg-[#111827] border border-white/10 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-white">🔥 Leads Recentes</h2>
-          <a href="/dashboard/leads" className="text-cyan-400 text-sm hover:underline">Ver todos →</a>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-cyan-400" />
+            Próximos Agendamentos
+          </h2>
+          <a href="/dashboard/appointments" className="text-cyan-400 text-sm hover:underline">Ver todos →</a>
         </div>
 
-        {recentLeads.length === 0 ? (
+        {recentAppointments.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
-            <p className="text-4xl mb-3">🤖</p>
-            <p className="font-medium">Nenhum lead ainda.</p>
-            <p className="text-sm mt-1">Quando um cliente qualificado aparecer, ele vai aparecer aqui.</p>
+            <p className="text-4xl mb-3">📅</p>
+            <p className="font-medium">Nenhum agendamento ainda.</p>
+            <p className="text-sm mt-1">Quando a IA marcar um horário no Google Calendar, ele aparecerá aqui.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {recentLeads.map((lead: any) => (
-              <div key={lead.id}
+            {recentAppointments.map((appt: any) => (
+              <div key={appt.id}
                 className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                 <div>
-                  <p className="font-semibold text-white text-sm">{lead.lead_name ?? 'Cliente'}</p>
-                  <p className="text-slate-400 text-xs mt-0.5">{lead.service_interest ?? 'Interesse não identificado'}</p>
+                  <p className="font-semibold text-white text-sm">{appt.lead_name ?? 'Cliente'}</p>
+                  <p className="text-slate-400 text-xs mt-0.5">{appt.service_name ?? 'Geral'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-slate-500">{new Date(lead.created_at).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-sm text-cyan-400 font-semibold">
+                    {new Date(appt.start_time).toLocaleDateString('pt-BR')} às {new Date(appt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                   <a
-                    href={`https://wa.me/${lead.lead_phone}`}
+                    href={`https://wa.me/${appt.lead_phone}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-green-400 hover:underline"
+                    className="text-xs text-green-400 hover:underline inline-block mt-1"
                   >
                     Contatar →
                   </a>
