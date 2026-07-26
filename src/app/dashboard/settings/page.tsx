@@ -193,10 +193,16 @@ function KnowledgeEditor({ clientId }: { clientId: string }) {
 
 // ─── Componente Google Calendar ──────────────────────────────────────────────
 
+type CalendarOption = { id: string; summary: string; primary: boolean };
+
 function GoogleCalendarSection({ clientId }: { clientId: string }) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
+  // Card 13: agendas da conta conectada + a escolhida hoje.
+  const [calendars, setCalendars] = useState<CalendarOption[]>([]);
+  const [calendarId, setCalendarId] = useState('');
+  const [savingCalendar, setSavingCalendar] = useState(false);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
   const checkStatus = useCallback(async () => {
@@ -205,6 +211,7 @@ function GoogleCalendarSection({ clientId }: { clientId: string }) {
       if (res.ok) {
         const data = await res.json();
         setConnected(data.connected);
+        setCalendarId(data.calendar_id ?? '');
       }
     } catch (err) {
       console.error('Error checking Google status:', err);
@@ -223,6 +230,40 @@ function GoogleCalendarSection({ clientId }: { clientId: string }) {
     }
   }, [checkStatus]);
 
+  // Só busca a lista de agendas depois que a conexão está confirmada.
+  useEffect(() => {
+    if (!connected) return;
+    let active = true;
+    fetch(`${backendUrl}/google/calendars?clientId=${clientId}`)
+      .then(res => (res.ok ? res.json() : []))
+      .then(data => { if (active) setCalendars(Array.isArray(data) ? data : []); })
+      .catch(err => console.error('Error loading Google calendars:', err));
+    return () => { active = false; };
+  }, [connected, clientId, backendUrl]);
+
+  async function handleCalendarChange(nextId: string) {
+    const previous = calendarId;
+    setCalendarId(nextId); // otimista
+    try {
+      setSavingCalendar(true);
+      const res = await fetch(`${backendUrl}/google/calendar?clientId=${clientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendar_id: nextId }),
+      });
+      if (!res.ok) {
+        setCalendarId(previous);
+        alert('Não foi possível salvar a agenda selecionada. Tente novamente.');
+      }
+    } catch (err) {
+      console.error('Error saving calendar selection:', err);
+      setCalendarId(previous);
+      alert('Erro ao salvar a agenda selecionada.');
+    } finally {
+      setSavingCalendar(false);
+    }
+  }
+
   async function handleDisconnect() {
     const confirmDisconnect = confirm('Deseja realmente desconectar sua conta do Google Calendar? Os agendamentos no Google não serão mais sincronizados.');
     if (!confirmDisconnect) return;
@@ -234,6 +275,8 @@ function GoogleCalendarSection({ clientId }: { clientId: string }) {
       });
       if (res.ok) {
         setConnected(false);
+        setCalendarId('');
+        setCalendars([]);
       }
     } catch (err) {
       console.error('Error disconnecting Google Calendar:', err);
@@ -261,8 +304,41 @@ function GoogleCalendarSection({ clientId }: { clientId: string }) {
             Google Calendar Ativo ✓
           </div>
           <p className="text-xs text-slate-400 leading-relaxed max-w-md">
-            Sua agenda principal do Google Calendar está conectada ao AceleraAssistente. Novos horários agendados por clientes no WhatsApp serão salvos de forma instantânea.
+            Sua conta do Google Calendar está conectada ao AceleraAssistente. Novos horários agendados por clientes no WhatsApp serão salvos de forma instantânea.
           </p>
+
+          <div className="max-w-md">
+            <label htmlFor="calendar-select" className="block text-sm font-semibold text-white mb-1.5">
+              Agenda utilizada pelo assistente
+            </label>
+            <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+              Escolha em qual agenda os compromissos serão criados — assim o assistente não mistura os agendamentos com a sua agenda pessoal.
+            </p>
+            <div className="flex items-center gap-3">
+              <select
+                id="calendar-select"
+                value={calendarId}
+                onChange={e => handleCalendarChange(e.target.value)}
+                disabled={savingCalendar || calendars.length === 0}
+                className="w-full bg-[#0a0f1e] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500/60 disabled:opacity-50"
+              >
+                {calendars.length === 0 && (
+                  <option value={calendarId}>Carregando agendas...</option>
+                )}
+                {/* Agenda salva que não veio na lista (ex.: removida no Google) */}
+                {calendars.length > 0 && calendarId && !calendars.some(c => c.id === calendarId) && (
+                  <option value={calendarId}>{calendarId} (indisponível)</option>
+                )}
+                {calendars.map(cal => (
+                  <option key={cal.id} value={cal.id}>
+                    {cal.summary}{cal.primary ? ' (principal)' : ''}
+                  </option>
+                ))}
+              </select>
+              {savingCalendar && <Loader2 className="w-4 h-4 animate-spin text-cyan-400 flex-shrink-0" />}
+            </div>
+          </div>
+
           <button
             onClick={handleDisconnect}
             disabled={disconnecting}
