@@ -191,6 +191,177 @@ function KnowledgeEditor({ clientId }: { clientId: string }) {
   );
 }
 
+// ─── Grade de Expediente (Card 11) ───────────────────────────────────────────
+
+type DayHours = { open: string; close: string };
+type BusinessHours = Record<string, DayHours>;
+
+// A tela edita apenas dias úteis, conforme o card.
+const WEEKDAYS = [
+  { key: 'mon', label: 'Segunda-feira' },
+  { key: 'tue', label: 'Terça-feira' },
+  { key: 'wed', label: 'Quarta-feira' },
+  { key: 'thu', label: 'Quinta-feira' },
+  { key: 'fri', label: 'Sexta-feira' },
+];
+
+const DEFAULT_HOURS: DayHours = { open: '08:00', close: '18:00' };
+
+function BusinessHoursSection({ clientId }: { clientId: string }) {
+  // Só os dias marcados existem no mapa; dia ausente = fechado.
+  const [hours, setHours] = useState<BusinessHours>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${backendUrl}/clients/${clientId}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!active) return;
+        setHours(data?.business_hours ?? {});
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error loading business hours:', err);
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [clientId, backendUrl]);
+
+  function toggleDay(key: string) {
+    setSaved(false);
+    setHours(prev => {
+      const next = { ...prev };
+      if (next[key]) delete next[key];
+      else next[key] = { ...DEFAULT_HOURS };
+      return next;
+    });
+  }
+
+  function updateTime(key: string, field: 'open' | 'close', value: string) {
+    setSaved(false);
+    setHours(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  }
+
+  // Um dia marcado precisa ter fechamento depois da abertura.
+  const invalidDays = WEEKDAYS
+    .filter(d => hours[d.key] && hours[d.key].close <= hours[d.key].open)
+    .map(d => d.label);
+
+  async function handleSave() {
+    try {
+      setSaving(true);
+      const res = await fetch(`${backendUrl}/clients/${clientId}/business-hours`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(hours),
+      });
+      if (res.ok) {
+        setSaved(true);
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.error ?? 'Não foi possível salvar o expediente. Tente novamente.');
+      }
+    } catch (err) {
+      console.error('Error saving business hours:', err);
+      alert('Erro ao salvar o expediente.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-[#111827] border border-white/10 rounded-2xl p-6 mt-6">
+      <h2 className="text-lg font-bold text-white mb-1">Horário de Funcionamento</h2>
+      <p className="text-slate-400 text-sm mb-6">
+        Marque os dias em que você atende e defina o horário de cada um.
+      </p>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-400">
+          <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+          <span className="text-sm">Carregando expediente...</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {WEEKDAYS.map(day => {
+            const active = Boolean(hours[day.key]);
+            const value = hours[day.key] ?? DEFAULT_HOURS;
+            const invalid = active && value.close <= value.open;
+            return (
+              <div
+                key={day.key}
+                className="flex items-center gap-3 flex-wrap p-3 bg-white/5 rounded-xl border border-white/5"
+              >
+                <label className="flex items-center gap-2.5 cursor-pointer select-none w-44 flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={() => toggleDay(day.key)}
+                    className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                  />
+                  <span className={`text-sm font-medium ${active ? 'text-white' : 'text-slate-500'}`}>
+                    {day.label}
+                  </span>
+                </label>
+
+                {active ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <input
+                      type="time"
+                      value={value.open}
+                      onChange={e => updateTime(day.key, 'open', e.target.value)}
+                      aria-label={`Abertura ${day.label}`}
+                      className={`bg-[#0a0f1e] border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500/60 ${
+                        invalid ? 'border-red-500/50' : 'border-white/10'
+                      }`}
+                    />
+                    <span className="text-slate-500">até</span>
+                    <input
+                      type="time"
+                      value={value.close}
+                      onChange={e => updateTime(day.key, 'close', e.target.value)}
+                      aria-label={`Fechamento ${day.label}`}
+                      className={`bg-[#0a0f1e] border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500/60 ${
+                        invalid ? 'border-red-500/50' : 'border-white/10'
+                      }`}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm text-slate-500">Fechado</span>
+                )}
+              </div>
+            );
+          })}
+
+          {invalidDays.length > 0 && (
+            <p className="text-xs text-red-400">
+              O horário de fechamento precisa ser depois da abertura em: {invalidDays.join(', ')}.
+            </p>
+          )}
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={handleSave}
+              disabled={saving || invalidDays.length > 0}
+              className="bg-gradient-to-r from-cyan-500 to-purple-600 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              Salvar Expediente
+            </button>
+            {saved && !saving && (
+              <span className="text-sm text-green-400 font-medium">Expediente salvo ✓</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente Google Calendar ──────────────────────────────────────────────
 
 type CalendarOption = { id: string; summary: string; primary: boolean };
@@ -397,6 +568,7 @@ export default function SettingsPage() {
         <p className="text-slate-400 text-sm mt-1">Gerencie sua conexão com o WhatsApp e dados da conta.</p>
       </div>
       <QRCodeSection clientId={clientId} />
+      <BusinessHoursSection clientId={clientId} />
       <GoogleCalendarSection clientId={clientId} />
     </div>
   );
